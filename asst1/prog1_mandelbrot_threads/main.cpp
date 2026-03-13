@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <getopt.h>
 
+#include <cstring> // Avoid make error on my machine
+
 #include "CycleTimer.h"
 
 extern void mandelbrotSerial(

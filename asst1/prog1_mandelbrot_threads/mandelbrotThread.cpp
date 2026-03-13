@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <thread>
-
+#include <cstdlib> // Avoid make error on my machine
 #include "CycleTimer.h"
 
 typedef struct {
@@ -34,7 +34,39 @@ void workerThreadStart(WorkerArgs * const args) {
     // to compute a part of the output image.  For example, in a
     // program that uses two threads, thread 0 could compute the top
     // half of the image and thread 1 could compute the bottom half.
+    // double startTime = CycleTimer::currentSeconds();
+    
+    // int threadId = args->threadId;
+    // int height = args->height;
+    // int numThreads = args->numThreads;
+    // int rowsPerThread = height / numThreads;
+    // int startRow = threadId * rowsPerThread;
+    // int totalRows;
+    // if (threadId == numThreads - 1) {
+    //     totalRows = height - startRow;
+    // } else {
+    //     totalRows = rowsPerThread;
+    // }
 
+    // mandelbrotSerial(
+    // args->x0, args->y0, args->x1, args->y1,
+    // args->width, args->height,
+    // startRow, totalRows,
+    // args->maxIterations,
+    // args->output);
+
+    for (unsigned int i = args->threadId; i < args->height; i += args->numThreads) {
+        mandelbrotSerial(
+            args->x0, args->y0, args->x1, args->y1,
+            args->width, args->height,
+            i, 1, 
+            args->maxIterations,
+            args->output
+        );
+    }
+
+    // double endTime = CycleTimer::currentSeconds();
+    // printf("[thread %d]:\t\t[%.3f] ms\n", args->threadId, (endTime - startTime) * 1000);
     printf("Hello world from thread %d\n", args->threadId);
 }
 
