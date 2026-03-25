@@ -1,6 +1,4 @@
 #include "tasksys.h"
-#include <thread>
-#include <atomic>
 
 IRunnable::~IRunnable() {}
 
@@ -119,9 +117,34 @@ TaskSystemParallelThreadPoolSpinning::TaskSystemParallelThreadPoolSpinning(int n
     // Implementations are free to add new class member variables
     // (requiring changes to tasksys.h).
     //
+    max_threads = num_threads;
+    ready.store(false); 
+    shutdown = false;
+
+    auto worker = [&]() {
+        while (!shutdown) {
+            if (ready.load() && next_task_id.load() < num_tasks) {
+                int task_id = next_task_id.fetch_add(1);
+                if (task_id < num_tasks) {
+                    cur_runnable->runTask(task_id, num_tasks);
+                    num_tasks_completed.fetch_add(1);
+                }
+            }
+        } 
+        
+    };
+
+    for (int i = 0; i < num_threads; i++) {
+        workers.emplace_back(std::thread(worker));
+    }
 }
 
-TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {}
+TaskSystemParallelThreadPoolSpinning::~TaskSystemParallelThreadPoolSpinning() {
+    shutdown = true;
+    for (int i = 0; i < max_threads; i++) {
+        workers[i].join();
+    }
+}
 
 void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_total_tasks) {
 
@@ -131,10 +154,22 @@ void TaskSystemParallelThreadPoolSpinning::run(IRunnable* runnable, int num_tota
     // method in Part A.  The implementation provided below runs all
     // tasks sequentially on the calling thread.
     //
+    
+    cur_runnable = runnable;
+    num_tasks = num_total_tasks;
+    num_tasks_completed.store(0);
+    next_task_id.store(0);
+    ready.store(true);
 
-    for (int i = 0; i < num_total_tasks; i++) {
-        runnable->runTask(i, num_total_tasks);
+    int task_id;  // Instead of just spinning, the main thread could also be a worker
+    while ((task_id = next_task_id.fetch_add(1)) < num_total_tasks) {
+        runnable->runTask(task_id, num_total_tasks);
+        num_tasks_completed.fetch_add(1);
     }
+    while (num_tasks_completed.load() < num_tasks) {
+        // spinning
+    }
+    ready.store(false);
 }
 
 TaskID TaskSystemParallelThreadPoolSpinning::runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
